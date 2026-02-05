@@ -3,6 +3,8 @@ import vue from "@vitejs/plugin-vue";
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages 部署路徑（對應 repo 名稱）
+  base: "/Test/",
   plugins: [vue()],
   server: {
     // 開發伺服器設定
