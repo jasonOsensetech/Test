@@ -2,9 +2,9 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
 // https://vite.dev/config/
-export default defineConfig({
-  // GitHub Pages 部署路徑（對應 repo 名稱）
-  base: "/Test/",
+export default defineConfig(({ mode }) => ({
+  // 開發環境用 "/"，生產環境用 "/Test/"（GitHub Pages）
+  base: mode === "production" ? "/Test/" : "/",
   plugins: [vue()],
   server: {
     // 開發伺服器設定
@@ -16,4 +16,4 @@ export default defineConfig({
     // 建置輸出目錄
     outDir: "dist",
   },
-});
+}));
