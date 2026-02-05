@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>來源識別中繼頁</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: #fff;
+        border-radius: 16px;
+        padding: 32px;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        text-align: center;
+      }
+
+      .loader {
+        width: 48px;
+        height: 48px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 24px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      h1 {
+        color: #333;
+        font-size: 20px;
+        margin-bottom: 16px;
+      }
+
+      .status-message {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 24px;
+      }
+
+      .detection-result {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 24px;
+      }
+
+      .detection-result .label {
+        font-size: 12px;
+        color: #999;
+        margin-bottom: 8px;
+      }
+
+      .detection-result .value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .detection-result .value.line {
+        color: #00b900;
+      }
+
+      .detection-result .value.fb {
+        color: #1877f2;
+      }
+
+      .detection-result .value.ig {
+        color: #e4405f;
+      }
+
+      .debug-info {
+        background: #2d2d2d;
+        color: #fff;
+        border-radius: 8px;
+        padding: 16px;
+        text-align: left;
+        font-size: 11px;
+        font-family: "Monaco", "Consolas", monospace;
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 20px;
+      }
+
+      .debug-info h3 {
+        color: #ffc107;
+        margin-bottom: 12px;
+        font-size: 12px;
+      }
+
+      .debug-info p {
+        margin: 4px 0;
+        word-break: break-all;
+      }
+
+      .debug-info .highlight {
+        color: #4fc3f7;
+      }
+
+      .error-state {
+        color: #dc3545;
+      }
+
+      .manual-input {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+      }
+
+      .manual-input h3 {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 12px;
+      }
+
+      .manual-input input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 12px;
+      }
+
+      .manual-input button {
+        width: 100%;
+        padding: 12px;
+        background: #667eea;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .manual-input button:hover {
+        background: #5a6fd6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="loader" id="loader"></div>
+      <h1>正在識別來源...</h1>
+      <p class="status-message" id="statusMessage">正在分析瀏覽器環境</p>
+
+      <div class="detection-result">
+        <div class="label">偵測到的來源平台</div>
+        <div class="value" id="detectedSource">偵測中...</div>
+      </div>
+
+      <!-- 手動輸入 memberSeq（測試用） -->
+      <div class="manual-input">
+        <h3>測試用：輸入會員序號</h3>
+        <input
+          type="text"
+          id="memberSeqInput"
+          placeholder="請輸入 memberSeq（例如：M12345）"
+        />
+        <button onclick="manualRedirect()">手動送出</button>
+      </div>
+
+      <div class="debug-info">
+        <h3>Debug 資訊</h3>
+        <p><strong>User Agent:</strong></p>
+        <p class="highlight" id="userAgentDisplay"></p>
+        <p><strong>Callback URL:</strong></p>
+        <p class="highlight" id="callbackDisplay"></p>
+        <p>
+          <strong>偵測結果:</strong> <span id="detectionResultDisplay"></span>
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // ========================================
+      // 設定區域
+      // ========================================
+
+      // 預設的 callback URL（Vue 3 主頁面）
+      const DEFAULT_CALLBACK_URL = "/";
+
+      // 自動跳轉延遲（毫秒）- 設為 0 可立即跳轉
+      const AUTO_REDIRECT_DELAY = 2000;
+
+      // ========================================
+      // UserAgent 偵測邏輯
+      // ========================================
+
+      /**
+       * 偵測使用者來源
+       * @returns {string} 'line' | 'fb' | 'ig' | 'web'
+       */
+      function detectSource() {
+        const ua = navigator.userAgent.toLowerCase();
+
+        // LINE App Browser 特徵
+        // LINE 內建瀏覽器的 UA 通常包含 "Line" 字串
+        if (ua.includes("line")) {
+          return "line";
+        }
+
+        // Facebook / Instagram App Browser 特徵
+        // FB: 通常包含 "FBAN" 或 "FBAV" 或 "FB_IAB"
+
+        // IG: 通常包含 "Instagram"
+        if (
+          ua.includes("fban") ||
+          ua.includes("fbav") ||
+          ua.includes("fb_iab")
+        ) {
+          return "fb";
+        }
+        if (ua.includes("instagram")) {
+          return "ig";
+        }
+
+        // 其他瀏覽器
+        return "web";
+      }
+
+      /**
+       * 取得來源的顯示名稱
+       * @param {string} source
+       * @returns {string}
+       */
+      function getSourceDisplayName(source) {
+        switch (source) {
+          case "line":
+            return "LINE App Browser";
+          case "fb":
+            return "Facebook App Browser";
+          case "ig":
+            return "Instagram App Browser";
+          default:
+            return "一般瀏覽器";
+        }
+      }
+
+      /**
+       * 取得 URL 參數
+       * @param {string} name
+       * @returns {string|null}
+       */
+      function getQueryParam(name) {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(name);
+      }
+
+      /**
+       * 產生模擬的 memberSeq（實際環境請從後端取得）
+       * @returns {string}
+       */
+      function generateMockMemberSeq() {
+        // 這裡僅用於測試，實際環境中應該從後端 API 取得
+        // 或是從 LINE LIFF / FB SDK 取得使用者資訊
+        return "M" + Date.now().toString().slice(-8);
+      }
+
+      /**
+       * 執行重導向
+       * @param {string} memberSeq
+       */
+      function doRedirect(memberSeq) {
+        const source = detectSource();
+        const callbackUrl = getQueryParam("callback") || DEFAULT_CALLBACK_URL;
+
+        // 組合目標 URL
+        const targetUrl = new URL(
+          decodeURIComponent(callbackUrl),
+          window.location.origin,
+        );
+        targetUrl.searchParams.set("memberSeq", memberSeq);
+        targetUrl.searchParams.set("from", source);
+
+        // 更新狀態
+        document.getElementById("statusMessage").textContent =
+          "即將跳轉回主頁面...";
+        document.getElementById("loader").style.borderTopColor = "#5cb85c";
+
+        // 執行跳轉
+        window.location.href = targetUrl.toString();
+      }
+
+      /**
+       * 手動重導向（測試用）
+       */
+      function manualRedirect() {
+        const memberSeqInput = document.getElementById("memberSeqInput");
+        const memberSeq = memberSeqInput.value.trim();
+
+        if (!memberSeq) {
+          alert("請輸入會員序號");
+          return;
+        }
+
+        doRedirect(memberSeq);
+      }
+
+      // ========================================
+      // 初始化
+      // ========================================
+
+      function init() {
+        const ua = navigator.userAgent;
+        const source = detectSource();
+        const callbackUrl = getQueryParam("callback") || DEFAULT_CALLBACK_URL;
+
+        // 更新 Debug 資訊
+        document.getElementById("userAgentDisplay").textContent = ua;
+        document.getElementById("callbackDisplay").textContent =
+          decodeURIComponent(callbackUrl);
+        document.getElementById("detectionResultDisplay").textContent = source;
+
+        // 更新偵測結果顯示
+        const sourceDisplay = document.getElementById("detectedSource");
+        sourceDisplay.textContent = getSourceDisplayName(source);
+        sourceDisplay.classList.add(source);
+
+        // 如果是在 LINE / FB 環境中，可以嘗試自動取得使用者資訊
+        // 這裡僅示範，實際需要整合 LINE LIFF SDK 或 FB SDK
+
+        /*
+      // LINE LIFF 範例：
+      if (source === 'line') {
+        liff.init({ liffId: 'YOUR_LIFF_ID' }).then(() => {
+          if (liff.isLoggedIn()) {
+            liff.getProfile().then(profile => {
+              doRedirect(profile.userId);
+            });
+          }
+        });
+      }
+
+      // FB SDK 範例：
+      if (source === 'fb') {
+        FB.getLoginStatus(function(response) {
+          if (response.status === 'connected') {
+            doRedirect(response.authResponse.userID);
+          }
+        });
+      }
+      */
+
+        // 自動跳轉（使用模擬的 memberSeq）
+        // 實際環境中，這裡應該等待真實的使用者識別完成
+        if (AUTO_REDIRECT_DELAY > 0) {
+          document.getElementById("statusMessage").textContent =
+            `將在 ${AUTO_REDIRECT_DELAY / 1000} 秒後自動跳轉（測試模式）`;
+
+          setTimeout(() => {
+            // 如果使用者沒有手動輸入，則使用自動產生的 memberSeq
+            const memberSeqInput = document.getElementById("memberSeqInput");
+            const memberSeq =
+              memberSeqInput.value.trim() || generateMockMemberSeq();
+            doRedirect(memberSeq);
+          }, AUTO_REDIRECT_DELAY);
+        }
+      }
+
+      // 頁面載入時初始化
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>
