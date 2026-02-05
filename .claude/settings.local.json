@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: 使用環境變數設定 redirect URL\n\n- 新增 .env.development（本地使用 /redirect.html）\n- 新增 .env.production（生產環境使用外部網址）\n- App.vue 改用 import.meta.env.VITE_REDIRECT_URL\n- Debug 面板新增顯示 Redirect URL\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: 更新 redirect URL 為 /redirectUri/（已改用 index.html）\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
