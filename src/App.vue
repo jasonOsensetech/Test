@@ -83,6 +83,7 @@
       <h3>Debug 資訊</h3>
       <div class="debug-content">
         <p><strong>目前 URL:</strong> {{ currentUrl }}</p>
+        <p><strong>Redirect URL:</strong> {{ REDIRECT_HTML_URL }}</p>
         <p><strong>Query String:</strong></p>
         <pre>{{ queryParams }}</pre>
         <p><strong>isFlowCompleted:</strong> {{ isFlowCompleted }}</p>
@@ -103,8 +104,8 @@ const apiLoading = ref(false)
 const apiResult = ref(null)
 const apiError = ref(null)
 
-// Redirect HTML 頁面的 URL（請依實際部署調整）
-const REDIRECT_HTML_URL = '/redirect.html'
+// Redirect HTML 頁面的 URL（從環境變數取得）
+const REDIRECT_HTML_URL = import.meta.env.VITE_REDIRECT_URL
 
 // 計算屬性
 const isFlowCompleted = computed(() => {
